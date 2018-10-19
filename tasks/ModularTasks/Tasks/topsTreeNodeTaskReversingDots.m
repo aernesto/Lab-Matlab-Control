@@ -141,8 +141,11 @@ classdef topsTreeNodeTaskReversingDots < topsTreeNodeTask
       % Keep for speed
       directions;
       
-      % For feedback
+      % For feedback of direction choice
       feedbackString;
+      
+      % For feedback of changepoint choice
+      feedbackStringCPP;
    end
    
    methods
@@ -199,14 +202,16 @@ classdef topsTreeNodeTaskReversingDots < topsTreeNodeTask
          trial = self.getTrial();
          self.statusStrings = { ...
             ... % Task info
-            sprintf('%s (task %d/%d): %d correct, %d error, mean RT=%.2f', ...
+            sprintf('%s \n (task %d/%d): \n %d correct, \n %d error, \n %d correctCPP, \n %d errorCPP, \n mean(notCPP) \n RT=%.2f', ...
             self.name, self.taskID, ...
             length(self.caller.children), ...
             sum([self.trialData.correct]==1), ...
             sum([self.trialData.correct]==0), ...
+            sum([self.trialData.correctCPP]==1), ...
+            sum([self.trialData.correctCPP]==0), ...
             nanmean([self.trialData.RT])), ...
             ... % Trial info
-            sprintf('Trial %d/%d, dir=%d, coh=%d, TrialTimes=%d, CPP=%d', ...
+            sprintf('Trial %d/%d, \n dir=%d, \n coh=%d, \n TrialTimes=%.2f, \n CPP=%.2f', ...
             self.trialCount, numel(self.trialData)*self.trialIterations, ...
             trial.direction, trial.coherence, trial.TrialTimes, trial.CPP)};
          self.updateStatus();
@@ -240,7 +245,7 @@ classdef topsTreeNodeTaskReversingDots < topsTreeNodeTask
          self.completedTrial = true;
          
          % Jump to next state when done
-         nextState = 'waitforChoiceCPP';
+         nextState = 'blanks';
          
          % Get current task/trial
          trial = self.getTrial();
@@ -264,7 +269,7 @@ classdef topsTreeNodeTaskReversingDots < topsTreeNodeTask
             choiceDir = 0; % RIGHT
          else
              disp('wrong key')
-             choiceDir = -3
+             choiceDir = -3;
          end
          
          % Find hazard choice
@@ -275,7 +280,7 @@ classdef topsTreeNodeTaskReversingDots < topsTreeNodeTask
 %          end
          
          if choiceDir == trial.direction 
-            trial.correct = .6;
+            trial.correct = 1;
             self.feedbackString = 'Direction correct';
          elseif choiceDir ~= trial.direction
             trial.correct = 0;
@@ -291,10 +296,9 @@ classdef topsTreeNodeTaskReversingDots < topsTreeNodeTask
          
          % ---- Re-save the trial
          %
-         disp('hello')
+%          disp('hello')
          self.setTrial(trial);
-%          self.readables.userInput.deactivateEvents();
-%          self.readables.userInput.flushData();
+
       end   
       
       function nextState = checkForChoiceCPP(self, events, eventTag)
@@ -311,13 +315,13 @@ classdef topsTreeNodeTaskReversingDots < topsTreeNodeTask
             return
          end
          
-         
+         % Override completedTrial flag
+         self.completedTrial = true;
          % Get current task/trial
          trial = self.getTrial(); 
          % ---- Good choice!
          %
-         % Override completedTrial flag
-         self.completedTrial = true;
+
          
          % Jump to next state when done
          nextState = 'blanks';
@@ -334,7 +338,7 @@ classdef topsTreeNodeTaskReversingDots < topsTreeNodeTask
          %  0.2 = wrong hazard, correct direction
          %  1 = both correct
 %          dirs    = self.indVars(strcmp('direction', {self.indVars.name})).values;
-        choiceDir = 1
+        choiceDir = 1;
         CPPgo = trial.CPPflag;
          
          % Find direction choice
@@ -345,15 +349,17 @@ classdef topsTreeNodeTaskReversingDots < topsTreeNodeTask
          end
          
          if choiceDir == 1 && CPPgo == 1
-             trial.correct = trial.correct + 0.4;
-             self.feedbackString = strcat(self.feedbackString,'Correct, there was a direction reversal');
+             trial.correctCPP = 1;
+             self.feedbackStringCPP = 'Correct, there was a direction reversal';
          elseif choiceDir == -1 && CPPgo == 1
-             self.feedbackString = strcat(self.feedbackString,'Incorrect, there was a direction reversal');
+             trial.correctCPP = 0;
+             self.feedbackStringCPP = 'Incorrect, there was a direction reversal';
          elseif choiceDir == -1 && CPPgo == -1
-             trial.correct = trial.correct + 0.4;
-             self.feedbackString = strcat(self.feedbackString, 'Correct, there was no direction reversal');
+             trial.correctCPP = 1;
+             self.feedbackStringCPP = 'Correct, there was no direction reversal';
          elseif choiceDir == 1 && CPPgo == -1
-             self.feedbackString = strcat(self.feedbackString,'Incorrect, there was no direction reversal');
+             trial.correctCPP = 0;
+             self.feedbackStringCPP = 'Incorrect, there was no direction reversal';
          end
          
          
@@ -384,12 +390,11 @@ classdef topsTreeNodeTaskReversingDots < topsTreeNodeTask
          %  differences
          
          %Create second RT !!!!!!
-         trial.RT = (trial.time_ui_choice - trial.time_ui_trialStart) - ...
-            (trial.time_screen_dotsOff - trial.time_screen_trialStart);
+         trial.RTCPP = (trial.time_ui_choice - trial.time_ui_trialStart) - ...
+            (trial.time_screen_targsOff - trial.time_screen_trialStart);
          
          % ---- Re-save the trial
          %
-         disp('goodbye')
          self.setTrial(trial);                  
       end  
       
@@ -403,14 +408,14 @@ classdef topsTreeNodeTaskReversingDots < topsTreeNodeTask
          % --- Show trial feedback in GUI/text window
          %
          self.statusStrings{2} = ...
-            sprintf('Trial %d/%d, dir=%d, coh=%d, CPP=%d: %s, RT=%.2f, CPPflag=%d', ...
+            sprintf(' FEEDBACK \n Trial %d/%d, \n dir=%d, \n coh=%d, \n CPP=%.2f: \n %s, \n %s, \n RT=%.2f, \n RTCPP=%.2f, \n CPPflag=%d', ...
             self.trialCount, numel(self.trialData)*self.trialIterations, ...
-            trial.direction, trial.coherence, trial.CPP, self.feedbackString, trial.RT,trial.CPPflag);
+            trial.direction, trial.coherence, trial.CPP, self.feedbackString, self.feedbackStringCPP, trial.RT, trial.RTCPP, trial.CPPflag);
          self.updateStatus(2); % just update the second one   
          
          % --- Show trial feedback on the screen
          %
-         self.showText(self.feedbackString, 'fdbkOn');
+%          self.showText(self.feedbackString, 'fdbkOn');
       end
       
       %% Check for flip
@@ -432,8 +437,8 @@ classdef topsTreeNodeTaskReversingDots < topsTreeNodeTask
                (trial.time_screen_dotsOn - trial.time_screen_trialStart) + ...
                0.2;
             
-               disp(sprintf('Change Point is %.2f, next flip in %.2f sec', ...
-               trial.CPP, self.nextDotReversalTime - mglGetSecs))
+%                disp(sprintf('Change Point is %.2f, next flip in %.2f sec', ...
+%                trial.CPP, self.nextDotReversalTime - mglGetSecs))
                trial.CPPflag = 1;
              else
                  self.nextDotReversalTime = 100;
@@ -458,9 +463,9 @@ classdef topsTreeNodeTaskReversingDots < topsTreeNodeTask
            
 
             % Set next reversal time
-            self.nextDotReversalTime = trial.time_local_trialStart + ...
-               (ret.onsetTime - trial.time_screen_trialStart) + ...
-               200;
+%             self.nextDotReversalTime = trial.time_local_trialStart + ...
+%                (ret.onsetTime - trial.time_screen_trialStart) + ...
+%                200;
 
 %             disp(sprintf('FLIPPED from %d to %d, next flip in %.2f sec', ...
 %                self.directions(2), self.directions(1), ...
@@ -498,7 +503,7 @@ classdef topsTreeNodeTaskReversingDots < topsTreeNodeTask
             ty  = td*sind(self.settings.targetSeparationAngle);
             
             %  Now set the target x,y. In order: 
-            %     'choseLL', 'choseLR'
+            %     'choseLL', 'choseLR' 'chooseUP' 'ChooseDown'
             ensemble.setObjectProperty('xCenter', [fpX-tx fpX+tx], 2);
             ensemble.setObjectProperty('yCenter', [fpY fpY], 2);
             ensemble.setObjectProperty('xCenter', [fpX fpX],4);
@@ -671,7 +676,7 @@ classdef topsTreeNodeTaskReversingDots < topsTreeNodeTask
          % ---- Default trialData
          %
          task.setTrialData( ...
-            {'direction', 'coherence', 'randSeedBase', 'choice', 'RT', 'correct' 'CPPflag' 'choiceCPP'}, ...
+            {'direction', 'coherence', 'randSeedBase', 'choice', 'RT', 'RTCPP', 'correct' 'correctCPP' 'CPPflag' 'choiceCPP'}, ...
             {'screenEnsemble', {'fixOn', 'targsOn', 'dotsOn', 'targsOff', 'fixOff', 'dotsOff', 'fdbkOn', 'YesNoOn'}, ...
             'readableList', {'choice'}});
 
