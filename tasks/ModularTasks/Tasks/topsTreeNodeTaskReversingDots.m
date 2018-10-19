@@ -268,7 +268,6 @@ classdef topsTreeNodeTaskReversingDots < topsTreeNodeTask
          elseif trial.choice == 2
             choiceDir = 0; % RIGHT
          else
-             disp('wrong key')
              choiceDir = -3;
          end
          
@@ -338,7 +337,7 @@ classdef topsTreeNodeTaskReversingDots < topsTreeNodeTask
          %  0.2 = wrong hazard, correct direction
          %  1 = both correct
 %          dirs    = self.indVars(strcmp('direction', {self.indVars.name})).values;
-        choiceDir = 1;
+        choiceDir = -3;
         CPPgo = trial.CPPflag;
          
          % Find direction choice
